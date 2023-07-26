@@ -61,6 +61,9 @@
 # player attributes
 .eqv PLAYER_HEIGHT	4
 .eqv PLAYER_WIDTH	3
+.eqv PLAYER_DEFAULT_DX  4	
+.eqv PLAYER_DEFAULT_DY 	-1 	
+.eqv PLAYER_SPAWN_LOC	7232	# x = 64, y = 56
 
 # Game constants
 
@@ -80,15 +83,14 @@ PlayerCoord: .word	0	# player coordinate on screen ( which is its address in mem
 main:
 	li  $t0, BASE_ADDR
 	
+	# init player's coord
+	li $t1, PLAYER_SPAWN_LOC
+	sw $t1, PlayerCoord
+	
 	# Draw player
-	
-	li $a0, 64
-	li $a1, 56
-	
 	jal DrawPlayer
 	
 	# Draw plats
-	
 	li $a0, 56
 	li $a1, 60
 	
@@ -103,12 +105,41 @@ main:
 	li $a1, 42
 	
 	jal DrawPlat1
-	
+	j TestBox
 GameLoop:
 	
 	# check keypress
-
 	
+	jal HandleKeypress
+	
+	# move player (also sets new player coords)
+	
+	
+	
+	# set movement to zero
+	sw, $zero, PlayerDx
+	sw, $zero, PlayerDy
+	
+	li $v0, 32
+	li $a0, REFRESH_RATE
+	j GameLoop
+	
+TestBox:
+	li $v0, 32
+	li $a0, 1000 # sleep for a sec
+	syscall
+	
+	li $t1, -1
+	sw $t1, PlayerDy
+	jal MovePlayerY
+	
+	li $v0, 32
+	li $a0, 1000 # sleep for a sec
+	syscall
+	
+	li $t1, -4
+	sw $t1, PlayerDx
+	jal MovePlayerX
 	
 ENDMAIN:
 	li $v0, 10	# terminate
@@ -124,18 +155,93 @@ ENDMAIN:
 
 HandleKeypress:
 	li $t0, KEYBOARD_ADDR
+	li $t1, PLAYER_DEFAULT_DX
+	li $t2, PLAYER_DEFAULT_DY
+	li $t3, -1
 	lw $t0, 0($t0)		# load the key
 HandleKeyW:
-	
+	bne $t0, 0x77, HandleKeyA
+	mult $t2, $t3
+	mflo $t2
+	sw $t2, PlayerDy	# set PlayerDy to default Dy (upwards)
 HandleKeyA:
-
+	bne $t0, 0x61, HandleKeyS
+	mult $t1, $t3
+	mflo $t1
+	sw $t1, PlayerDx	# set PlayerDx to default Dx (leftwards)
 HandleKeyS:
-
+	bne $t0, 0x73, HandleKeyD
+	sw $t1, PlayerDx	# set PlayerDx to default Dx (rightwards)
 HandleKeyD:
+	bne $t0, 0x64, HandleKeypressExit
+	sw $t2, PlayerDy	# set PlayerDy to default Dy (downwards)
+HandleKeypressExit:
+	jr $ra
 
-# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ DRAW GAME OBJECTS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ MOVE GAME OBJECTS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
-# Params: int x, int y
+# move by PlayerDx and update player coord
+MovePlayerX:
+	# remove prev player (put old ra into stack first)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal ClearPlayer
+	
+	#pop old ra back
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	
+	# Update playercoord
+	lw $t0, PlayerCoord
+	lw $t1, PlayerDx
+	add $t0, $t0, $t1
+	sw $t0, PlayerCoord
+	
+	# Redraw ( put old ra into stack first)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal DrawPlayer
+	
+	#pop old ra back
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	
+	jr $ra
+	
+# move by PlayerDy
+MovePlayerY:
+	# remove prev player (put old ra into stack first)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal ClearPlayer
+	
+	#pop old ra back
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	
+	# Update playercoord
+	lw $t0, PlayerCoord
+	lw $t1, PlayerDy
+	li $t2, WIDTH
+	mult $t1, $t2
+	mflo $t1
+	add $t0, $t0, $t1
+	sw $t0, PlayerCoord
+	
+	# Redraw ( put old ra into stack first)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal DrawPlayer
+	
+	#pop old ra back
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	
+	jr $ra
+
+
+# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ DRAW AND CLEAR GAME OBJECTS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
 DrawPlayer:
 	li $t0, BASE_ADDR
 	
@@ -143,16 +249,10 @@ DrawPlayer:
 	li $t2, PLAYER_EYE_COLOR
 	li $t3, PLAYER_DARK_COLOR
 	
-	# set up addr at the coords (x,y)
-	move $t4, $a0
-	move $t5, $a1
-	li $t6, WIDTH
-	mult $t5, $t6
-	mflo $t5
-	add $t4, $t5, $t4
+	lw $t4, PlayerCoord
+	add $t0, $t0, $t4
 	
-	add $t0, $t0, $t4	#1st row
-	sw $t3, 0($t0)
+	sw $t3, 0($t0)		#1st row
 	sw $t1, 4($t0)
 	sw $t3, 8($t0)
 	
@@ -172,6 +272,32 @@ DrawPlayer:
 	sw $t1, 0($t0)
 	sw $t3, 4($t0)
 	sw $t1, 8($t0)
+	
+	jr $ra
+	
+ClearPlayer:
+	li $t0, BASE_ADDR
+	lw $t1, PlayerCoord
+	add $t0, $t0, $t1
+	
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	
+	addi $t0, $t0, WIDTH	#3rd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	
+	addi $t0, $t0, WIDTH	#4th row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
 	
 	jr $ra
 
