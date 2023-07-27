@@ -56,7 +56,7 @@
 .eqv HEIGHT_ACT		512	# actual height by px
 
 # timing
-.eqv REFRESH_RATE	30
+.eqv REFRESH_RATE	60
 
 # player attributes
 .eqv PLAYER_HEIGHT	4
@@ -70,6 +70,7 @@
 .data
 
 newLine: .asciiz 	"\n"
+Pressed: .asciiz	"Press\n"
 
 PlayerDx: .word		0	# player speed in x direc (0 means stationary)
 PlayerDy: .word		0	# player speed in y direc (0 means stationary)
@@ -105,25 +106,38 @@ main:
 	li $a1, 42
 	
 	jal DrawPlat1
-	j TestBox
+
+
+# ----------- Game Loop -------------- #
 GameLoop:
 	
 	# check keypress
-	
+	li $t1, KEYBOARD_ADDR
+	lw $t2, 0($t1)
+	bne $t2, 1, NO_KEYPRESS
+KEYPRESS: # keypress detected
 	jal HandleKeypress
-	
+	j MOVE
+NO_KEYPRESS: #keypress not detected
+	j NO_MOVE
+MOVE:
 	# move player (also sets new player coords)
-	
-	
+	jal MovePlayerX
+	jal MovePlayerY
 	
 	# set movement to zero
 	sw, $zero, PlayerDx
 	sw, $zero, PlayerDy
-	
+
+NO_MOVE:
 	li $v0, 32
 	li $a0, REFRESH_RATE
+	syscall
 	j GameLoop
-	
+# ----------- Game Loop -------------- #
+
+
+
 TestBox:
 	li $v0, 32
 	li $a0, 1000 # sleep for a sec
@@ -158,11 +172,9 @@ HandleKeypress:
 	li $t1, PLAYER_DEFAULT_DX
 	li $t2, PLAYER_DEFAULT_DY
 	li $t3, -1
-	lw $t0, 0($t0)		# load the key
+	lw $t0, 4($t0)		# load the key
 HandleKeyW:
 	bne $t0, 0x77, HandleKeyA
-	mult $t2, $t3
-	mflo $t2
 	sw $t2, PlayerDy	# set PlayerDy to default Dy (upwards)
 HandleKeyA:
 	bne $t0, 0x61, HandleKeyS
@@ -171,10 +183,12 @@ HandleKeyA:
 	sw $t1, PlayerDx	# set PlayerDx to default Dx (leftwards)
 HandleKeyS:
 	bne $t0, 0x73, HandleKeyD
-	sw $t1, PlayerDx	# set PlayerDx to default Dx (rightwards)
+	mult $t2, $t3
+	mflo $t2
+	sw $t2, PlayerDy	# set PlayerDx to default Dx (rightwards)
 HandleKeyD:
 	bne $t0, 0x64, HandleKeypressExit
-	sw $t2, PlayerDy	# set PlayerDy to default Dy (downwards)
+	sw $t1, PlayerDx	# set PlayerDy to default Dy (downwards)
 HandleKeypressExit:
 	jr $ra
 
