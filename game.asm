@@ -56,7 +56,7 @@
 .eqv HEIGHT_ACT		512	# actual height by px
 
 # timing
-.eqv REFRESH_RATE	60
+.eqv REFRESH_RATE	120
 
 # player attributes
 .eqv PLAYER_HEIGHT	4
@@ -120,40 +120,21 @@ KEYPRESS: # keypress detected
 	j MOVE
 NO_KEYPRESS: #keypress not detected
 	j NO_MOVE
-MOVE:
+MOVE:	
 	# move player (also sets new player coords)
 	jal MovePlayerX
 	jal MovePlayerY
 	
-	# set movement to zero
+	# set movement back to zero
 	sw, $zero, PlayerDx
 	sw, $zero, PlayerDy
-
+	
 NO_MOVE:
 	li $v0, 32
 	li $a0, REFRESH_RATE
 	syscall
 	j GameLoop
 # ----------- Game Loop -------------- #
-
-
-
-TestBox:
-	li $v0, 32
-	li $a0, 1000 # sleep for a sec
-	syscall
-	
-	li $t1, -1
-	sw $t1, PlayerDy
-	jal MovePlayerY
-	
-	li $v0, 32
-	li $a0, 1000 # sleep for a sec
-	syscall
-	
-	li $t1, -4
-	sw $t1, PlayerDx
-	jal MovePlayerX
 	
 ENDMAIN:
 	li $v0, 10	# terminate
@@ -196,42 +177,50 @@ HandleKeypressExit:
 
 # move by PlayerDx and update player coord
 MovePlayerX:
-	# remove prev player (put old ra into stack first)
+	# put old ra into stack
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
-	jal ClearPlayer
 	
-	#pop old ra back
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
+	# remove prev player
+	jal ClearPlayer
+
+	lw $t0, PlayerCoord
 	
 	# Update playercoord
-	lw $t0, PlayerCoord
 	lw $t1, PlayerDx
 	add $t0, $t0, $t1
+	
+	# check for collisions between borders
+	subi $t1, $t0, BASE_ADDR	# get offset
+	move $a0, $t1
+	jal HitLeftBorder
+	beq $v0, 1, NoMoveX
+	
+	subi $t1, $t0, BASE_ADDR	# get offset
+	addi $t1, $t1, 8
+	move $a0, $t1
+	jal HitRightBorder
+	beq $v0, 1, NoMoveX
+	
+	# update new coord
 	sw $t0, PlayerCoord
 	
-	# Redraw ( put old ra into stack first)
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
+	# Redraw 
 	jal DrawPlayer
 	
+NoMoveX: 
 	#pop old ra back
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
 	
 	jr $ra
-	
+
 # move by PlayerDy
 MovePlayerY:
 	# remove prev player (put old ra into stack first)
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal ClearPlayer
-	
-	#pop old ra back
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
 	
 	# Update playercoord
 	lw $t0, PlayerCoord
@@ -242,11 +231,62 @@ MovePlayerY:
 	add $t0, $t0, $t1
 	sw $t0, PlayerCoord
 	
-	# Redraw ( put old ra into stack first)
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
+	# Redraw 
 	jal DrawPlayer
 	
+	#pop old ra back
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	
+	jr $ra
+
+# move by PlayerDy
+MovePlayerY2:
+	# put old ra into stack first
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	lw $t0, PlayerCoord
+	
+	# Update playercoord
+	lw $t1, PlayerDy
+	li $t2, WIDTH
+	mult $t1, $t2
+	mflo $t1
+	add $t0, $t0, $t1
+	
+	# check for collisions between borders
+	subi $t1, $t0, BASE_ADDR	# get offset
+	move $a0, $t1
+	# addi $a0, $a0, 8 		# make sure checking the rightmost edge
+	jal HitTopBorder
+	beq $v0, 1, NoMoveY2
+	
+	#li $t1, WIDTH
+	#li $t2, 3
+	#mult $t2, $t1
+	#mflo $t1
+	#add $t1, $t0, $t1
+	#subi $t1, $t1, BASE_ADDR	# get offset
+	#move $a0, $t1
+	#jal HitBottomBorder
+	#beq $v0, 1, NoMoveY2
+	
+	
+	# remove prev player 
+	jal ClearPlayer
+	
+	# store new coord
+	sw $t0, PlayerCoord
+	
+	# Redraw 
+	jal DrawPlayer
+
+NoMoveY2:
+
+	li $v0, 1
+	li $a0, 0
+	syscall
 	#pop old ra back
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
@@ -332,13 +372,13 @@ DrawPlat1:
 	add $t4, $t5, $t4
 	
 	add $t0, $t0, $t4	#1st row
-	sw $t3, 0($t0)
+	sw $t2, 0($t0)
 	sw $t2, 4($t0)
-	sw $t3, 8($t0)
+	sw $t2, 8($t0)
 	sw $t2, 12($t0)
-	sw $t3, 16($t0)
+	sw $t2, 16($t0)
 	sw $t2, 20($t0)
-	sw $t3, 24($t0)
+	sw $t2, 24($t0)
 	
 	li $t3, PLAT_DARK_COLOR
 	
