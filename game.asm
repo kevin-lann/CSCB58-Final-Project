@@ -56,16 +56,19 @@
 .eqv HEIGHT_ACT		512	# actual height by px
 
 # timing
-.eqv REFRESH_RATE	120
+.eqv REFRESH_RATE	60
+.eqv GRAVITY_RATE	4	# gravity acts once per GRAVITY_RATE frames
 
 # player attributes
 .eqv PLAYER_HEIGHT	4
 .eqv PLAYER_WIDTH	3
 .eqv PLAYER_DEFAULT_DX  4	
-.eqv PLAYER_DEFAULT_DY 	-1 	
+.eqv PLAYER_DEFAULT_DY 	-2 	
 .eqv PLAYER_SPAWN_LOC	7232	# x = 64, y = 56
 
 # Game constants
+.eqv GRAVITY_DY		1
+
 
 .data
 
@@ -76,6 +79,8 @@ PlayerDx: .word		0	# player speed in x direc (0 means stationary)
 PlayerDy: .word		0	# player speed in y direc (0 means stationary)
 PlayerJumpHeight: .word	11	# no. pixels able to be jumped by player
 PlayerCoord: .word	0	# player coordinate on screen ( which is its address in memory)
+
+GravityTicks: .word	0	# counter for gravity
 
 .text
 
@@ -119,20 +124,42 @@ KEYPRESS: # keypress detected
 	jal HandleKeypress
 	j MOVE
 NO_KEYPRESS: #keypress not detected
-	j NO_MOVE
-MOVE:	
-	# move player (also sets new player coords)
+	j END_MOVE
+
+
+# Moves x and/or y direc depending on whether dx and dy are nonzero
+MOVE:
+	lw $t2, PlayerDx
+	lw $t3, PlayerDy
+MOVE_X:	
+	beq $t2, 0, MOVE_Y	# Dx = 0
 	jal MovePlayerX
+MOVE_Y:
+	beq $t3, 0, END_MOVE	# Dy = 0
 	jal MovePlayerY
 	
+END_MOVE:
+	lw $t2, GravityTicks
+	bne $t2, GRAVITY_RATE, END_GRAVITY
+GRAVITY: # do gravity
+	li $t2, GRAVITY_DY
+	sw $t2, PlayerDy
+	jal MovePlayerY
+	sw $zero, GravityTicks	# reset gravity ticks
+END_GRAVITY:
 	# set movement back to zero
-	sw, $zero, PlayerDx
-	sw, $zero, PlayerDy
+	sw $zero, PlayerDx
+	sw $zero, PlayerDy
 	
-NO_MOVE:
+	# GravityTicks++
+	lw $t2, GravityTicks
+	addi $t2, $t2, 1
+	sw $t2, GravityTicks
+	
 	li $v0, 32
 	li $a0, REFRESH_RATE
 	syscall
+	
 	j GameLoop
 # ----------- Game Loop -------------- #
 	
@@ -188,6 +215,8 @@ MovePlayerX:
 	
 	# Update playercoord
 	lw $t1, PlayerDx
+	# check if Dx is 0
+	beq $t1, 0, NoMoveX
 	add $t0, $t0, $t1
 	
 	# check for collisions between borders
@@ -202,13 +231,34 @@ MovePlayerX:
 	jal HitRightBorder
 	beq $v0, 1, NoMoveX
 	
+	# check for coliisions between sides of platforms
+	li $t4, BASE_ADDR
+	add $t4, $t4, $t0
+	lw $t1, 0($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 128($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 256($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 384($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	
+	lw $t1, 8($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 136($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 264($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 392($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	
 	# update new coord
 	sw $t0, PlayerCoord
 	
+NoMoveX: 
 	# Redraw 
 	jal DrawPlayer
 	
-NoMoveX: 
 	#pop old ra back
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
@@ -225,12 +275,44 @@ MovePlayerY:
 	# Update playercoord
 	lw $t0, PlayerCoord
 	lw $t1, PlayerDy
+	beq, $t1, 0, NoMoveY	# check if Dy is 0
 	li $t2, WIDTH
 	mult $t1, $t2
 	mflo $t1
 	add $t0, $t0, $t1
-	sw $t0, PlayerCoord
 	
+	# check if hit plats
+	li $t4, BASE_ADDR
+	add $t4, $t4, $t0
+	lw $t1, 384($t4)	# 4th row
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 388($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 392($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 256($t4)	# 3rd row
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 260($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 264($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 128($t4)	# 2nd row
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 132($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 136($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 0($t4)	# top row of player
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 4($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	lw $t1, 8($t4)
+	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	
+	# store new coord
+	sw $t0, PlayerCoord
+
+NoMoveY:
 	# Redraw 
 	jal DrawPlayer
 	
@@ -245,6 +327,9 @@ MovePlayerY2:
 	# put old ra into stack first
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
+	
+	# remove prev player 
+	jal ClearPlayer
 	
 	lw $t0, PlayerCoord
 	
@@ -272,17 +357,12 @@ MovePlayerY2:
 	#jal HitBottomBorder
 	#beq $v0, 1, NoMoveY2
 	
-	
-	# remove prev player 
-	jal ClearPlayer
-	
 	# store new coord
 	sw $t0, PlayerCoord
-	
-	# Redraw 
-	jal DrawPlayer
 
 NoMoveY2:
+	# Redraw 
+	jal DrawPlayer
 
 	li $v0, 1
 	li $a0, 0
@@ -379,17 +459,6 @@ DrawPlat1:
 	sw $t2, 16($t0)
 	sw $t2, 20($t0)
 	sw $t2, 24($t0)
-	
-	li $t3, PLAT_DARK_COLOR
-	
-	add $t0, $t0, WIDTH	#2nd row
-	sw $t3, 0($t0)
-	sw $t3, 4($t0)
-	sw $t1, 8($t0)
-	sw $t1, 12($t0)
-	sw $t3, 16($t0)
-	sw $t3, 20($t0)
-	sw $t1, 24($t0)
 	
 	jr $ra
 
