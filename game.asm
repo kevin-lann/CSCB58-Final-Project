@@ -49,15 +49,22 @@
 .eqv PLAT_DARK_COLOR	0x192858
 .eqv PLAT_HIGHLIGHT_COLOR 0x9595EF
 
+.eqv HEART_BASE_COLOR 	0xD22552
+.eqv HEART_DARK_COLOR	0x7C132E
+
+.eqv SPIKE_BASE_COLOR 	0xC7C4B8
+.eqv SPIKE_DARK_COLOR	0x86847A
+
 # dimensions
 .eqv WIDTH		128	
 .eqv HEIGHT		256
 .eqv WIDTH_ACT		256	# actual width by px
 .eqv HEIGHT_ACT		512	# actual height by px
+.eqv TOTAL_PIXELS	8192
 
 # timing
 .eqv REFRESH_RATE	60
-.eqv GRAVITY_RATE	4	# gravity acts once per GRAVITY_RATE frames
+.eqv GRAVITY_RATE	2	# gravity acts once per GRAVITY_RATE frames
 
 # player attributes
 .eqv PLAYER_HEIGHT	4
@@ -68,6 +75,7 @@
 
 # Game constants
 .eqv GRAVITY_DY		1
+.eqv JUMPING_DY		-1
 
 
 .data
@@ -78,16 +86,29 @@ Pressed: .asciiz	"Press\n"
 PlayerDx: .word		0	# player speed in x direc (0 means stationary)
 PlayerDy: .word		0	# player speed in y direc (0 means stationary)
 PlayerJumpHeight: .word	11	# no. pixels able to be jumped by player
-PlayerCoord: .word	0	# player coordinate on screen ( which is its address in memory)
+PlayerCoord: .word	0	# player coordinate on screen ( offset from BASE_ADDR essentially)
+PlayerState: .word	0	# 0 = gravity, 1 = jumping
 
 GravityTicks: .word	0	# counter for gravity
+Jumps: .word		0	# counter for jumping
 
 .text
 
 .globl main
 
 main:
-	li  $t0, BASE_ADDR
+	
+	
+	# Reset Game variables
+	sw $zero, PlayerDx
+	sw $zero, PlayerDy
+	sw $zero, PlayerState
+	sw $zero, GravityTicks
+	sw $zero, Jumps
+	li $t0, 11
+	sw $t0, PlayerJumpHeight
+	
+	li $t0, BASE_ADDR
 	
 	# init player's coord
 	li $t1, PLAYER_SPAWN_LOC
@@ -99,18 +120,25 @@ main:
 	# Draw plats
 	li $a0, 56
 	li $a1, 60
-	
 	jal DrawPlat1
 	
 	li $a0, 4
 	li $a1, 52
-	
 	jal DrawPlat1
 	
 	li $a0, 40
 	li $a1, 42
-	
 	jal DrawPlat1
+	
+	#draw heals
+	li $a0, 12
+	li $a1, 48
+	jal DrawHeal
+	
+	#draw spikes
+	li $a0, 48
+	li $a1, 39
+	jal DrawSpikeUp
 
 
 # ----------- Game Loop -------------- #
@@ -135,12 +163,37 @@ MOVE_X:
 	beq $t2, 0, MOVE_Y	# Dx = 0
 	jal MovePlayerX
 MOVE_Y:
-	beq $t3, 0, END_MOVE	# Dy = 0
-	jal MovePlayerY
-	
+	# beq $t3, 0, END_MOVE	# Dy = 0
+	# jal MovePlayerY
 END_MOVE:
+
+	
+# Do gravity / jumping stuff
+	lw $t3, PlayerState
 	lw $t2, GravityTicks
 	bne $t2, GRAVITY_RATE, END_GRAVITY
+	beq $zero, $t3, GRAVITY
+
+JUMPING: # do jumping
+	lw $t2, PlayerJumpHeight
+	lw $t3, Jumps
+	sw $zero, GravityTicks	# reset gravity ticks
+	beq $t2, $t3, NO_JUMP # if reached max jump height, then no more jump
+	
+	li $t2, JUMPING_DY
+	sw $t2, PlayerDy
+	jal MovePlayerY
+	
+	# Jumps++
+	lw $t3, Jumps
+	addi $t3, $t3, 1
+	sw $t3, Jumps
+	
+	j END_GRAVITY
+NO_JUMP:
+	sw $zero, Jumps # reset Jumps to 0
+	sw $zero, PlayerState	# set state back to gravity
+	j GRAVITY
 GRAVITY: # do gravity
 	li $t2, GRAVITY_DY
 	sw $t2, PlayerDy
@@ -169,7 +222,28 @@ ENDMAIN:
 
 
 
+# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ STATE CHECKS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
+CheckJump: # checks if player able to jump. Requires player to be over platform and for current PlayerState
+	# to be 0. Changes PlayerState to 1 if can jump
+	lw $t4, PlayerState
+	bne $zero, $t4, CHECK_JUMP_END	# if PlayerState is not 0, then cannot jump
+	lw $t4, PlayerCoord
+	add $t4, $t4, BASE_ADDR
+	addi $t4, $t4, 512	# 1 row below player
+	lw $t5, 0($t4)
+	beq $t5, PLAT_LIGHT_COLOR, CAN_JUMP
+	lw $t5, 4($t4)
+	beq $t5, PLAT_LIGHT_COLOR, CAN_JUMP
+	lw $t5, 8($t4)
+	beq $t5, PLAT_LIGHT_COLOR, CAN_JUMP
+	sw $zero, PlayerState # no jump
+	j CHECK_JUMP_END
+CAN_JUMP:
+	li $t4, 1
+	sw $t4, PlayerState # jump
+CHECK_JUMP_END:
+	jr $ra
 
 
 
@@ -183,20 +257,27 @@ HandleKeypress:
 	lw $t0, 4($t0)		# load the key
 HandleKeyW:
 	bne $t0, 0x77, HandleKeyA
-	sw $t2, PlayerDy	# set PlayerDy to default Dy (upwards)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)		# push old ra into stack
+	jal CheckJump		# check if able to jump
+	lw $ra, 0($sp)		# pop old ra back
+	addi $sp, $sp, 4
 HandleKeyA:
-	bne $t0, 0x61, HandleKeyS
+	bne $t0, 0x61, HandleKeyD
 	mult $t1, $t3
 	mflo $t1
 	sw $t1, PlayerDx	# set PlayerDx to default Dx (leftwards)
-HandleKeyS:
-	bne $t0, 0x73, HandleKeyD
-	mult $t2, $t3
-	mflo $t2
-	sw $t2, PlayerDy	# set PlayerDx to default Dx (rightwards)
 HandleKeyD:
-	bne $t0, 0x64, HandleKeypressExit
-	sw $t1, PlayerDx	# set PlayerDy to default Dy (downwards)
+	bne $t0, 0x64, HandleKeyP
+	sw $t1, PlayerDx	# set PlayerDy to default Dx (Rightwards)
+HandleKeyP:
+	bne $t0, 0x70, HandleKeypressExit
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal ClearScreen	# clear the screen
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	j main		# restart the game
 HandleKeypressExit:
 	jr $ra
 
@@ -322,56 +403,6 @@ NoMoveY:
 	
 	jr $ra
 
-# move by PlayerDy
-MovePlayerY2:
-	# put old ra into stack first
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
-	
-	# remove prev player 
-	jal ClearPlayer
-	
-	lw $t0, PlayerCoord
-	
-	# Update playercoord
-	lw $t1, PlayerDy
-	li $t2, WIDTH
-	mult $t1, $t2
-	mflo $t1
-	add $t0, $t0, $t1
-	
-	# check for collisions between borders
-	subi $t1, $t0, BASE_ADDR	# get offset
-	move $a0, $t1
-	# addi $a0, $a0, 8 		# make sure checking the rightmost edge
-	jal HitTopBorder
-	beq $v0, 1, NoMoveY2
-	
-	#li $t1, WIDTH
-	#li $t2, 3
-	#mult $t2, $t1
-	#mflo $t1
-	#add $t1, $t0, $t1
-	#subi $t1, $t1, BASE_ADDR	# get offset
-	#move $a0, $t1
-	#jal HitBottomBorder
-	#beq $v0, 1, NoMoveY2
-	
-	# store new coord
-	sw $t0, PlayerCoord
-
-NoMoveY2:
-	# Redraw 
-	jal DrawPlayer
-
-	li $v0, 1
-	li $a0, 0
-	syscall
-	#pop old ra back
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
-	
-	jr $ra
 
 
 # ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ DRAW AND CLEAR GAME OBJECTS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
@@ -434,14 +465,43 @@ ClearPlayer:
 	sw $zero, 8($t0)
 	
 	jr $ra
+	
+# Params: int x, int y
+DrawSpikeUp:
+	li $t0, BASE_ADDR
+	
+	li $t1, SPIKE_BASE_COLOR
+	li $t2, SPIKE_DARK_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4 	#1st row
+	sw $t1, 8($t0)
+	
+	addi $t0, $t0, WIDTH	#2nd row	
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	
+	addi $t0, $t0, WIDTH	#3rd row
+	sw $t1, 0($t0)
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t1, 16($t0)
+	
+	jr $ra
 
 # Params: int x, int y
 DrawPlat1:
 	li $t0, BASE_ADDR
-	
-	li $t1, PLAT_BASE_COLOR
 	li $t2, PLAT_LIGHT_COLOR
-	li $t3, PLAT_HIGHLIGHT_COLOR
 	
 	# set up addr at the coords (x,y)
 	move $t4, $a0
@@ -461,6 +521,54 @@ DrawPlat1:
 	sw $t2, 24($t0)
 	
 	jr $ra
+	
+# Params: int x, int y
+DrawHeal:
+	li $t0, BASE_ADDR
+	li $t1, HEART_BASE_COLOR
+	li $t2, HEART_DARK_COLOR	
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4	#1st row
+	sw $t1, 0($t0)
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $t1, 4($t0)
+	
+	jr $ra
+
+
+# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ Gameplay ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+# Clear screen
+ClearScreen:
+	li $t0, BASE_ADDR
+	li $t1, TOTAL_PIXELS
+	add $t1, $t0, $t1	# last pixel to clear
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal ClearPlayer
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+CLEARSCREENLOOP:
+	beq $t0, $t1, CLEAREND
+	sw $zero, 0($t0)
+	addi $t0, $t0, 4
+CLEAREND:
+	jr $ra
+	
 
 
 # ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ COLLISIONS HANDLER FUNCTIONS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
