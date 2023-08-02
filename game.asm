@@ -51,6 +51,10 @@
 
 .eqv HEART_BASE_COLOR 	0xD22552
 .eqv HEART_DARK_COLOR	0x7C132E
+.eqv HEART_ICON_BASE_COLOR 	0xFF4488
+.eqv HEART_ICON_DARK_COLOR	0x81134E
+.eqv GOLD_HEART_ICON_BASE_COLOR 0xD8C65A
+.eqv GOLD_HEART_ICON_DARK_COLOR	0x80693D
 
 .eqv SPIKE_BASE_COLOR 	0xC7C4B8
 .eqv SPIKE_DARK_COLOR	0x86847A
@@ -72,7 +76,8 @@
 .eqv PLAYER_DEFAULT_DX  4	
 .eqv PLAYER_DEFAULT_DY 	-2 	
 .eqv PLAYER_SPAWN_LOC	7232	# x = 64, y = 56
-.eqv PLAYER_MAX_HP	3
+.eqv PLAYER_DEFAULT_HP	3
+.eqv PLAYER_MAX_HP	4
 
 # Game constants
 .eqv GRAVITY_DY		1
@@ -91,6 +96,8 @@ PlayerCoord: .word	0	# player coordinate on screen ( offset from BASE_ADDR essen
 PlayerState: .word	0	# 0 = gravity, 1 = jumping
 PlayerHP:	.word	0	# player health points (max = PLAYER_MAX_HP, 0 means dead)
 
+CurrentHearts:	.word	0	# current hp hearts displayed 
+
 GravityTicks: .word	0	# counter for gravity
 Jumps: .word		0	# counter for jumping
 
@@ -99,8 +106,7 @@ Jumps: .word		0	# counter for jumping
 .globl main
 
 main:
-	
-	
+
 	# Reset Game variables
 	sw $zero, PlayerDx
 	sw $zero, PlayerDy
@@ -109,8 +115,9 @@ main:
 	sw $zero, Jumps
 	li $t0, 11
 	sw $t0, PlayerJumpHeight
-	li $t0, PLAYER_MAX_HP
+	li $t0, PLAYER_DEFAULT_HP
 	sw $t0, PlayerHP
+	sw $t0, CurrentHearts
 	
 	li $t0, BASE_ADDR
 	
@@ -146,11 +153,26 @@ main:
 	li $a0, 48
 	li $a1, 39
 	jal DrawSpikeUp
+	
+	# draw HP hearts
+	li $a0, 112
+	li $a1, 7
+	jal DrawHeartIcon
+	li $a0, 112
+	li $a1, 4
+	jal DrawHeartIcon
+	li $a0, 112
+	li $a1, 1
+	jal DrawHeartIcon
+	
 
 
 # ----------- Game Loop -------------- #
 GameLoop:
-	
+	# check lose
+	jal CheckLose
+	# check win
+	# jal CheckWin
 	# check keypress
 	li $t1, KEYBOARD_ADDR
 	lw $t2, 0($t1)
@@ -216,6 +238,9 @@ END_GRAVITY:
 	addi $t2, $t2, 1
 	sw $t2, GravityTicks
 	
+	# draw HP hearts
+	jal DrawHP
+	
 	li $v0, 32
 	li $a0, REFRESH_RATE
 	syscall
@@ -251,6 +276,205 @@ CAN_JUMP:
 	sw $t4, PlayerState # jump
 CHECK_JUMP_END:
 	jr $ra
+	
+CheckLose:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	lw $t0, PlayerHP
+	beq $t0, 0, LOSE
+	lw $t0, PlayerCoord
+	li $t1, TOTAL_PIXELS
+	bgt $t0, $t1, LOSE
+	j NO_LOSE
+LOSE:
+	j LoseScreen
+NO_LOSE:
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+	
+	
+CheckWin:
+
+NO_WIN:
+	jr $ra
+
+
+
+# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ GAME SCREENS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+LoseScreen:
+	# no need to store ra here
+	# Draw Skull and Crossbones
+	
+	li $t1, 0xFFFFFF
+	li $t2, HEART_DARK_COLOR
+	
+	li $t0, BASE_ADDR
+	addi $t0, $t0, 384
+	addi $t0, $t0, 44
+	
+	sw $t2, 4($t0)
+	sw $t2, 28($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 24($t0)
+	sw $t1, 28($t0)
+	sw $t2, 32($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, -4($t0)
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 24($t0)
+	sw $t1, 28($t0)
+	sw $t1, 32($t0)
+	sw $t2, 36($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)	
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t1, 24($t0)
+	sw $t2, 28($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)
+	sw $t2, 12($t0)
+	sw $t1, 16($t0)
+	sw $t2, 20($t0)
+	sw $t1, 24($t0)
+	sw $t2, 28($t0)
+	addi $t0, $t0, WIDTH 
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)	
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t1, 24($t0)
+	sw $t2, 28($t0)
+	addi $t0, $t0, WIDTH
+	li $t1, 0xCCCCCC
+	sw $t2, 8($t0) 
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 20($t0)
+	sw $t1, 24($t0)
+	sw $t1, 28($t0)
+	sw $t2, 32($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 20($t0)
+	sw $t1, 24($t0)
+	sw $t2, 28($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 8($t0)
+	sw $t2, 24($t0)
+	
+	# Draw "P"
+	addi $t0, $t0, 260
+	sw $t2, 0($t0)
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t2, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	li $t1, 0xFFFFFF
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	sw $t2, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	li $t1, 0xCCCCCC
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t2, 20($t0)
+	sw $t2, 24($t0)
+	
+	
+	
+LoseScreenLoop: # wait for user to press "P"
+	# check keypress
+	li $t1, KEYBOARD_ADDR
+	lw $t2, 0($t1)
+	bne $t2, 1, LOSE_NO_KEYPRESS
+LOSE_KEYPRESS: # keypress detected
+	jal HandleKeypress
+LOSE_NO_KEYPRESS: #keypress not detected
+	li $v0, 32
+	li $a0, REFRESH_RATE
+	syscall
+	
+	j LoseScreenLoop
+	
 
 
 
@@ -448,12 +672,13 @@ CollisionHeart:
 	bne $a1, HEART_BASE_COLOR, CollisionSpike
 	jal ClearHeart	# remove heart from screen
 	lw $a2, PlayerHP
-	beq $a2, 3, CollisionHandlerEnd # max HP; cannot increase more
+	beq $a2, PLAYER_MAX_HP, CollisionHandlerEnd # max HP; cannot increase more
 	addi $a2, $a2, 1 # increase PlayerHP
 	sw $a2, PlayerHP
 CollisionSpike:
 	bne $a1, SPIKE_BASE_COLOR, CollisionHandlerEnd
 	lw $a2, PlayerHP
+	beq $a2, 0, CollisionHandlerEnd # min HP; cannot decrease more
 	addi $a2, $a2, -1 # decrease PlayerHP
 	sw $a2, PlayerHP
 CollisionHandlerEnd:
@@ -748,6 +973,145 @@ CLEAR_PIXEL:
 	sw $zero, 0($a0)
 NO_CLEAR_PIXEL:
 	jr $ra
+
+
+DrawHeartIcon:
+	li $t0, BASE_ADDR
+	li $t1, HEART_ICON_BASE_COLOR	
+	li $t2, HEART_ICON_DARK_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4	#1st row
+	sw $t1, 0($t0)
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $t1, 4($t0)
+	
+	jr $ra
+	
+DrawGoldHeartIcon:
+	li $t0, BASE_ADDR
+	li $t1, GOLD_HEART_ICON_BASE_COLOR	
+	li $t2, GOLD_HEART_ICON_DARK_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4	#1st row
+	sw $t1, 0($t0)
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $t1, 4($t0)
+	
+	jr $ra
+
+# checks PlayerHP and draws num of hearts accordingly
+DrawHP:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	lw $t1, CurrentHearts
+	lw $t2, PlayerHP
+	beq $t1, $t2, NO_DRAW_HP # if no change in hearts, then dont redraw
+	
+	# set Current Hearts to PlayerHP
+	sw $t2, CurrentHearts
+	# clear hearts first
+	li $t0, BASE_ADDR
+	
+	addi $t0, $t0, WIDTH
+	addi $t0, $t0, 112	# first heart
+	sw $zero, 0($t0)	# 1st row
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $zero, 4($t0)
+	
+	addi $t0, $t0, WIDTH	# second heart
+	sw $zero, 0($t0)	# 1st row
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $zero, 4($t0)
+	
+	addi $t0, $t0, WIDTH	# third heart
+	sw $zero, 0($t0)	# 1st row
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $zero, 4($t0)
+	
+	addi $t0, $t0, WIDTH	# fourth heart
+	sw $zero, 0($t0)	# 1st row
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH	#2nd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	addi $t0, $t0, WIDTH  #3rd row
+	sw $zero, 4($t0)
+	
+	# Draw heart icons
+DrawHP4:
+	blt $t2, 4, DrawHP3
+	li $a0, 112
+	li $a1, 10
+	jal DrawGoldHeartIcon
+DrawHP3: # 3 HP
+	blt $t2, 3, DrawHP2
+	li $a0, 112
+	li $a1, 7
+	jal DrawHeartIcon
+DrawHP2: # 2 HP
+	blt $t2, 2, DrawHP1
+	li $a0, 112
+	li $a1, 4
+	jal DrawHeartIcon
+DrawHP1: # 1 HP
+	blt $t2, 1, NO_DRAW_HP
+	li $a0, 112
+	li $a1, 1
+	jal DrawHeartIcon
+NO_DRAW_HP:
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+	
 	
 	
 
@@ -758,15 +1122,12 @@ ClearScreen:
 	li $t0, BASE_ADDR
 	li $t1, TOTAL_PIXELS
 	add $t1, $t0, $t1	# last pixel to clear
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
-	jal ClearPlayer
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
 CLEARSCREENLOOP:
-	beq $t0, $t1, CLEAREND
+	bge $t0, $t1, CLEAREND
 	sw $zero, 0($t0)
+NEXT:
 	addi $t0, $t0, 4
+	j CLEARSCREENLOOP
 CLEAREND:
 	jr $ra
 	
