@@ -324,20 +324,26 @@ MovePlayerX:
 	add $t4, $t4, $t0
 	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	lw $t1, 128($t4)
+	addi $t4, $t4, 8
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	lw $t1, 256($t4)
+	addi $t4, $t4, 120
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	lw $t1, 384($t4)
+	addi $t4, $t4, 8
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	
-	lw $t1, 8($t4)
+	addi $t4, $t4, 120
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	lw $t1, 136($t4)
+	addi $t4, $t4, 8
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	lw $t1, 264($t4)
+	addi $t4, $t4, 120
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
-	lw $t1, 392($t4)
+	addi $t4, $t4, 8
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerX
 	
 	# update new coord
@@ -375,29 +381,41 @@ MovePlayerY:
 	# check if hit objs
 	li $t4, BASE_ADDR
 	add $t4, $t4, $t0
-	lw $t1, 384($t4)	# 4th row
+	addi $t4, $t4, 384
+	lw $t1, 0($t4)	# 4th row
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 388($t4)
+	addi $t4, $t4, 4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 392($t4)
+	addi $t4, $t4, 4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 256($t4)	# 3rd row
+	addi $t4, $t4, -128
+	lw $t1, 0($t4)	# 3rd row
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 260($t4)
+	addi $t4, $t4, -4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 264($t4)
+	addi $t4, $t4, -4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 128($t4)	# 2nd row
+	addi $t4, $t4, -128
+	lw $t1, 0($t4)	# 2nd row
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 132($t4)
+	addi $t4, $t4, 4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 136($t4)
+	addi $t4, $t4, 4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
+	addi $t4, $t4, -128
 	lw $t1, 0($t4)	# top row of player
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 4($t4)
+	addi $t4, $t4, -4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
-	lw $t1, 8($t4)
+	addi $t4, $t4, -4
+	lw $t1, 0($t4)
 	bne $t1, 0, CollisionHandlerY
 	
 	# store new coord
