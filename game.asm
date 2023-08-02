@@ -72,6 +72,7 @@
 .eqv PLAYER_DEFAULT_DX  4	
 .eqv PLAYER_DEFAULT_DY 	-2 	
 .eqv PLAYER_SPAWN_LOC	7232	# x = 64, y = 56
+.eqv PLAYER_MAX_HP	3
 
 # Game constants
 .eqv GRAVITY_DY		1
@@ -88,6 +89,7 @@ PlayerDy: .word		0	# player speed in y direc (0 means stationary)
 PlayerJumpHeight: .word	11	# no. pixels able to be jumped by player
 PlayerCoord: .word	0	# player coordinate on screen ( offset from BASE_ADDR essentially)
 PlayerState: .word	0	# 0 = gravity, 1 = jumping
+PlayerHP:	.word	0	# player health points (max = PLAYER_MAX_HP, 0 means dead)
 
 GravityTicks: .word	0	# counter for gravity
 Jumps: .word		0	# counter for jumping
@@ -107,6 +109,8 @@ main:
 	sw $zero, Jumps
 	li $t0, 11
 	sw $t0, PlayerJumpHeight
+	li $t0, PLAYER_MAX_HP
+	sw $t0, PlayerHP
 	
 	li $t0, BASE_ADDR
 	
@@ -130,10 +134,13 @@ main:
 	li $a1, 42
 	jal DrawPlat1
 	
-	#draw heals
+	#draw hearts
 	li $a0, 12
 	li $a1, 48
-	jal DrawHeal
+	jal DrawHeart
+	li $a0, 64
+	li $a1, 50
+	jal DrawHeart
 	
 	#draw spikes
 	li $a0, 48
@@ -297,46 +304,49 @@ MovePlayerX:
 	# Update playercoord
 	lw $t1, PlayerDx
 	# check if Dx is 0
-	beq $t1, 0, NoMoveX
+	beq $t1, 0, EndMoveX
 	add $t0, $t0, $t1
 	
 	# check for collisions between borders
 	subi $t1, $t0, BASE_ADDR	# get offset
 	move $a0, $t1
 	jal HitLeftBorder
-	beq $v0, 1, NoMoveX
+	beq $v0, 1, EndMoveX
 	
 	subi $t1, $t0, BASE_ADDR	# get offset
 	addi $t1, $t1, 8
 	move $a0, $t1
 	jal HitRightBorder
-	beq $v0, 1, NoMoveX
+	beq $v0, 1, EndMoveX
 	
-	# check for coliisions between sides of platforms
+	# check for coliisions between sides of objects
 	li $t4, BASE_ADDR
 	add $t4, $t4, $t0
 	lw $t1, 0($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	lw $t1, 128($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	lw $t1, 256($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	lw $t1, 384($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	
 	lw $t1, 8($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	lw $t1, 136($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	lw $t1, 264($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	lw $t1, 392($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerX
 	
 	# update new coord
 	sw $t0, PlayerCoord
-	
-NoMoveX: 
+	j EndMoveX
+CollisionHandlerX:
+	move $a0, $t4
+	jal CollisionHandler	
+EndMoveX: 
 	# Redraw 
 	jal DrawPlayer
 	
@@ -356,44 +366,47 @@ MovePlayerY:
 	# Update playercoord
 	lw $t0, PlayerCoord
 	lw $t1, PlayerDy
-	beq, $t1, 0, NoMoveY	# check if Dy is 0
+	beq, $t1, 0, EndMoveY	# check if Dy is 0
 	li $t2, WIDTH
 	mult $t1, $t2
 	mflo $t1
 	add $t0, $t0, $t1
 	
-	# check if hit plats
+	# check if hit objs
 	li $t4, BASE_ADDR
 	add $t4, $t4, $t0
 	lw $t1, 384($t4)	# 4th row
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 388($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 392($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 256($t4)	# 3rd row
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 260($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 264($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 128($t4)	# 2nd row
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 132($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 136($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 0($t4)	# top row of player
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 4($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	lw $t1, 8($t4)
-	beq $t1, PLAT_LIGHT_COLOR, NoMoveY
+	bne $t1, 0, CollisionHandlerY
 	
 	# store new coord
 	sw $t0, PlayerCoord
-
-NoMoveY:
+	j EndMoveY
+CollisionHandlerY:
+	move $a0, $t4
+	jal CollisionHandler
+EndMoveY:
 	# Redraw 
 	jal DrawPlayer
 	
@@ -401,6 +414,33 @@ NoMoveY:
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
 	
+	jr $ra
+
+
+# ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ HANDLE COLLISONS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+# params: int coord addr in a0
+CollisionHandler:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	lw $a1, 0($a0)
+CollisionPlat:
+	# do nothing here. We already skipped moving the player.
+CollisionHeart:
+	bne $a1, HEART_BASE_COLOR, CollisionSpike
+	jal ClearHeart	# remove heart from screen
+	lw $a2, PlayerHP
+	beq $a2, 3, CollisionHandlerEnd # max HP; cannot increase more
+	addi $a2, $a2, 1 # increase PlayerHP
+	sw $a2, PlayerHP
+CollisionSpike:
+	bne $a1, SPIKE_BASE_COLOR, CollisionHandlerEnd
+	lw $a2, PlayerHP
+	addi $a2, $a2, -1 # decrease PlayerHP
+	sw $a2, PlayerHP
+CollisionHandlerEnd:
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
 	jr $ra
 
 
@@ -523,7 +563,7 @@ DrawPlat1:
 	jr $ra
 	
 # Params: int x, int y
-DrawHeal:
+DrawHeart:
 	li $t0, BASE_ADDR
 	li $t1, HEART_BASE_COLOR
 	li $t2, HEART_DARK_COLOR	
@@ -549,6 +589,149 @@ DrawHeal:
 	
 	jr $ra
 
+# searches the 7x8 area around the address given by $a0 and clears heart color
+ClearHeart:
+	
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	addi $a0, $a0, -264
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	addi $a0, $a0, 4
+	jal ClearHeartPixel
+	
+	addi $a0, $a0, 128
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	addi $a0, $a0, -4
+	jal ClearHeartPixel
+	
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+	
+# params: int addr is in $a0
+ClearHeartPixel:
+	lw $a1, 0($a0)
+	# clear if pixel equals either heart color
+	beq $a1, HEART_BASE_COLOR, CLEAR_PIXEL
+	beq $a1, HEART_DARK_COLOR, CLEAR_PIXEL
+	j NO_CLEAR_PIXEL
+CLEAR_PIXEL:
+	sw $zero, 0($a0)
+NO_CLEAR_PIXEL:
+	jr $ra
+	
+	
 
 # ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ Gameplay ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
