@@ -100,6 +100,13 @@ CurrentHearts:	.word	0	# current hp hearts displayed
 GravityTicks: .word	0	# counter for gravity
 Jumps: .word		0	# counter for jumping
 
+Platform1X: .word	0	# moving platform X coord on screen 
+Platform1Y: .word	0	# moving platform Y coord on screen 
+Platform1Shifts: .word	0	# num of shifts right that moving platform 1 is currently shifted
+Platform1MaxShifts: .word 0	# max shifts for plat1
+Platform1Dx:	.word	4	# plat speed in x direc
+
+LevelHasMovingPlats: .word 0	# stores whether or not the current level has moving plats or not
 CurrentLevel: .word	1	# current level (1,2, or 3)
 
 .text
@@ -118,6 +125,8 @@ main:
 	li $t0, PLAYER_DEFAULT_HP
 	sw $t0, PlayerHP
 	sw $t0, CurrentHearts
+	sw $zero, Platform1Shifts
+	sw $zero, LevelHasMovingPlats
 	
 	li $t0, BASE_ADDR
 	
@@ -150,6 +159,8 @@ GameLoop:
 	jal CheckLose
 	# check win
 	jal CheckWin
+	
+NO_MOVING_PLATS:
 	# check keypress
 	li $t1, KEYBOARD_ADDR
 	lw $t2, 0($t1)
@@ -174,10 +185,22 @@ MOVE_Y:
 END_MOVE:
 
 	
-# Do gravity / jumping stuff
-	lw $t3, PlayerState
+# Do gravity / jumping stuff / move plat
 	lw $t2, GravityTicks
 	bne $t2, GRAVITY_RATE, END_GRAVITY
+	
+MOVEPLATS:
+	# plat 1
+	li $a0, 1
+	jal MovePlat
+	lw $t2, CurrentLevel
+	beq $t2, 1, ENDMOVEPLATS
+	# plat 2
+	li $a0, 2
+	jal MovePlat
+ENDMOVEPLATS:
+	
+	lw $t3, PlayerState
 	beq $zero, $t3, GRAVITY
 
 JUMPING: # do jumping
@@ -800,6 +823,57 @@ EndMoveY:
 	jr $ra
 
 
+
+# params: a0 is the plat# to move
+MovePlat:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	beq $a0, 2, MovePlat2
+MovePlat1:
+	# Clear Previous plat1
+	lw $t1, Platform1X
+	lw $t2, Platform1Y
+	move $a0, $t1
+	move $a1, $t2
+	jal ClearSidePlatM
+	
+	lw $t3, Platform1Shifts
+	lw $t4, Platform1Dx
+	# check if hit movement bounds
+CHECKRIGHT1:
+	bne $t4, 4, CHECKLEFT1
+	lw $t9, Platform1MaxShifts
+	bne $t3, $t9, CHECKLEFT1
+	li $t5, -4
+	sw $t5, Platform1Dx
+	j INCREMENT1
+CHECKLEFT1:
+	bne $t3, 0, INCREMENT1
+	li $t5, 4
+	sw $t5, Platform1Dx
+	
+INCREMENT1:
+	# increment shift
+	add $t3, $t3, $t4
+	sw $t3, Platform1Shifts
+	
+	# update coords
+	add $t1, $t1, $t4
+	sw $t1, Platform1X
+	
+	# move
+	move $a0, $t1
+	move $a1, $t2
+	jal DrawSidePlatM
+	
+	j EndMovePlat
+	
+MovePlat2:
+EndMovePlat:
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+
 # ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ HANDLE COLLISONS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
 # params: int coord addr in a0
@@ -978,6 +1052,37 @@ DrawSidePlatM:
 	sw $t1, 16($t0)
 	sw $t1, 20($t0)
 	sw $t1, 24($t0)
+	
+	jr $ra
+	
+# Params: int x, int y
+ClearSidePlatM:
+	li $t0, BASE_ADDR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4	#1st row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	sw $zero, 12($t0)
+	sw $zero, 16($t0)
+	sw $zero, 20($t0)
+	sw $zero, 24($t0)
+	addi $t0, $t0, WIDTH	# 2nd row
+	sw $zero, 0($t0)
+	sw $zero, 4($t0)
+	sw $zero, 8($t0)
+	sw $zero, 12($t0)
+	sw $zero, 16($t0)
+	sw $zero, 20($t0)
+	sw $zero, 24($t0)
 	
 	jr $ra
 	
@@ -1466,6 +1571,16 @@ DrawLevel1:
 	# Draw player
 	jal DrawPlayer
 	
+	# Draw moving plats
+	li $a0, 180
+	li $a1, 27
+	sw $a0, Platform1X
+	sw $a1, Platform1Y
+	
+	jal DrawSidePlatM
+	li $a0, 40
+	sw $a0, Platform1MaxShifts
+	
 	# Draw plats
 	li $a0, 120
 	li $a1, 60
@@ -1485,9 +1600,7 @@ DrawLevel1:
 	li $a0, 236
 	li $a1, 37
 	jal DrawSidePlatS
-	li $a0, 200
-	li $a1, 27
-	jal DrawSidePlatM
+#
 	li $a0, 196
 	li $a1, 17
 	jal DrawSidePlatM
