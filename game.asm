@@ -107,7 +107,6 @@ CurrentLevel: .word	1	# current level (1,2, or 3)
 .globl main
 
 main:
-
 	# Reset Game variables
 	sw $zero, PlayerDx
 	sw $zero, PlayerDy
@@ -150,7 +149,7 @@ GameLoop:
 	# check lose
 	jal CheckLose
 	# check win
-	# jal CheckWin
+	jal CheckWin
 	# check keypress
 	li $t1, KEYBOARD_ADDR
 	lw $t2, 0($t1)
@@ -202,6 +201,7 @@ NO_JUMP:
 	sw $zero, PlayerState	# set state back to gravity
 	j GRAVITY
 GRAVITY: # do gravity
+	sw $zero, Jumps # reset Jumps to 0
 	li $t2, GRAVITY_DY
 	sw $t2, PlayerDy
 	jal MovePlayerY
@@ -234,8 +234,8 @@ ENDMAIN:
 
 # ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ STATE CHECKS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
-CheckJump: # checks if player able to jump. Requires player to be over platform and for current PlayerState
-	# to be 0. Changes PlayerState to 1 if can jump
+CheckJump: # checks if player able to jump. Requires player to be over platform 
+	# and requires current PlayerState to be 0. Changes PlayerState to 1 if can jump
 	lw $t4, PlayerState
 	bne $zero, $t4, CHECK_JUMP_END	# if PlayerState is not 0, then cannot jump
 	lw $t4, PlayerCoord
@@ -247,12 +247,35 @@ CheckJump: # checks if player able to jump. Requires player to be over platform 
 	beq $t5, PLAT_BASE_COLOR, CAN_JUMP
 	lw $t5, 8($t4)
 	beq $t5, PLAT_BASE_COLOR, CAN_JUMP
+	
 	sw $zero, PlayerState # no jump
 	j CHECK_JUMP_END
 CAN_JUMP:
 	li $t4, 1
 	sw $t4, PlayerState # jump
 CHECK_JUMP_END:
+	jr $ra
+	
+	
+CheckWallJump: # Can wall jump even if playerstate is 0(falling)
+	lw $t4, PlayerState
+	bne $zero, $t4, CHECK_JUMP_END	# if PlayerState is not 0, then cannot jump
+	
+	lw $t4, PlayerCoord
+	add $t4, $t4, BASE_ADDR
+	
+	addi $t4, $t4, 768
+	lw $t5, -4($t4)	# bottom left side of player
+	beq $t5, PLAT_BASE_COLOR, CAN_JUMP
+	lw $t5, 16($t4) # bottom right side of player
+	beq $t5, PLAT_BASE_COLOR, CAN_JUMP
+	
+	sw $zero, PlayerState # no jump
+	j CHECK_WALL_JUMP_END
+CAN_WALL_JUMP:
+	li $t4, 1
+	sw $t4, PlayerState # jump
+CHECK_WALL_JUMP_END:
 	jr $ra
 	
 CheckLose:
@@ -280,6 +303,8 @@ WIN:
 	sw $t0, CurrentLevel
 	j WinLevelScreen
 WINGAME:
+	li $t0, 1
+	sw $t0, CurrentLevel # reset level back to 1
 	j WinGameScreen
 NO_WIN:
 	jr $ra
@@ -288,16 +313,200 @@ NO_WIN:
 
 # ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ GAME SCREENS ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
+# P icon
+DrawP:
+	li $t1, 0xFFFFFF
+	li $t2, HEART_DARK_COLOR
+	
+	li $t0, BASE_ADDR
+	# Draw "P"
+	addi $t0, $t0, 116
+	addi $t0, $t0, 4352
+	sw $t2, 0($t0)
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t2, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	sw $t2, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	li $t1, 0xCCCCCC
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	sw $t1, 8($t0)
+	sw $t1, 12($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t2, 24($t0)
+	addi $t0, $t0, WIDTH
+	sw $t2, 0($t0)
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t2, 20($t0)
+	sw $t2, 24($t0)
+	
+	jr $ra
+
 # When WinlevelScreen is called, P must be pressed to continue the game (Lvl will be incremented)
 WinLevelScreen:
 	# no need to store ra here
 	jal ClearScreen
+	jal DrawP
+	li $t1, 0xFFFFFF
+	li $t2, HEART_DARK_COLOR
+	
+	li $t0, BASE_ADDR
+	# Draw "Nxt Lvl" text
+	addi $t0, $t0, 64
+	addi $t0, $t0, 2048
+	sw $t1, 0($t0) # row 1
+	sw $t1, 4($t0)
+	sw $t1, 20($t0)
+	sw $t1, 28($t0)
+	sw $t1, 44($t0)
+	sw $t1, 52($t0)
+	sw $t1, 56($t0)
+	sw $t1, 60($t0)
+	sw $t1, 64($t0)
+	sw $t1, 68($t0)
+	sw $t1, 84($t0)
+	sw $t1, 100($t0)
+	sw $t1, 116($t0)
+	sw $t1, 124($t0)
+	
+	addi $t0, $t0, WIDTH # row 2
+	sw $t1, 0($t0) 
+	sw $t1, 12($t0)
+	sw $t1, 20($t0)
+	sw $t1, 32($t0)
+	sw $t1, 40($t0)
+	sw $t1, 60($t0)
+	sw $t1, 84($t0)
+	sw $t1, 100($t0)
+	sw $t1, 116($t0)
+	sw $t1, 124($t0)
+	
+	addi $t0, $t0, WIDTH # row 3
+	sw $t1, 0($t0) 
+	sw $t1, 12($t0)
+	sw $t1, 20($t0)
+	sw $t1, 36($t0)
+	sw $t1, 60($t0)
+	sw $t1, 84($t0)
+	sw $t1, 100($t0)
+	sw $t1, 116($t0)
+	sw $t1, 124($t0)
+	
+	addi $t0, $t0, WIDTH # row 4
+	sw $t1, 0($t0) 
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t1, 32($t0)
+	sw $t1, 40($t0)
+	sw $t1, 60($t0)
+	sw $t1, 84($t0)
+	sw $t1, 104($t0)
+	sw $t1, 112($t0)
+	sw $t1, 124($t0)
+	
+	addi $t0, $t0, WIDTH # row 5
+	sw $t1, 0($t0) 
+	sw $t1, 20($t0) 
+	sw $t1, 28($t0)
+	sw $t1, 44($t0) 
+	sw $t1, 60($t0)
+	sw $t1, 84($t0)
+	sw $t1, 88($t0)
+	sw $t1, 92($t0)
+	sw $t1, 108($t0)
+	sw $t1, 124($t0)
+	sw $t1, 128($t0)
+	sw $t1, 132($t0) 
+	
+WinLevelScreenLoop: # wait for user to press "P"
+	# check keypress
+	li $t1, KEYBOARD_ADDR
+	lw $t2, 0($t1)
+	bne $t2, 1, WIN_LVL_NO_KEYPRESS
+WIN_LVL_KEYPRESS: # keypress detected
+	jal HandleKeypress
+WIN_LVL_NO_KEYPRESS: #keypress not detected
+	li $v0, 32
+	li $a0, REFRESH_RATE
+	syscall
+	
+	j WinLevelScreenLoop
+	
 
 # When WinGameScreen is called, P must be pressed to restart the game (lvl will be reset to 1)
 WinGameScreen:
 	# no need to store ra here
 	jal ClearScreen
 	# reset level to 1
+
+WinGameScreenLoop: # wait for user to press "P"
+	# check keypress
+	li $t1, KEYBOARD_ADDR
+	lw $t2, 0($t1)
+	bne $t2, 1, WIN_GAME_NO_KEYPRESS
+WIN_GAME_KEYPRESS: # keypress detected
+	jal HandleKeypress
+WIN_GAME_NO_KEYPRESS: #keypress not detected
+	li $v0, 32
+	li $a0, REFRESH_RATE
+	syscall
+	
+	j WinGameScreenLoop
 	
 	
 # When LoseScreen is called, P must be pressed to restart the game
@@ -381,83 +590,7 @@ LoseScreen:
 	sw $t2, 8($t0)
 	sw $t2, 24($t0)
 	
-	# Draw "P"
-	addi $t0, $t0, 260
-	sw $t2, 0($t0)
-	sw $t2, 4($t0)
-	sw $t2, 8($t0)
-	sw $t2, 12($t0)
-	sw $t2, 16($t0)
-	sw $t2, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	li $t1, 0xFFFFFF
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t1, 8($t0)
-	sw $t1, 12($t0)
-	sw $t1, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t2, 8($t0)
-	sw $t2, 12($t0)
-	sw $t2, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t2, 8($t0)
-	sw $t1, 12($t0)
-	sw $t2, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t2, 8($t0)
-	sw $t2, 12($t0)
-	sw $t2, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t2, 8($t0)
-	sw $t1, 12($t0)
-	sw $t1, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	li $t1, 0xCCCCCC
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t2, 8($t0)
-	sw $t1, 12($t0)
-	sw $t1, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	sw $t2, 0($t0)
-	sw $t1, 4($t0)
-	sw $t1, 8($t0)
-	sw $t1, 12($t0)
-	sw $t1, 16($t0)
-	sw $t1, 20($t0)
-	sw $t2, 24($t0)
-	addi $t0, $t0, WIDTH
-	sw $t2, 0($t0)
-	sw $t2, 4($t0)
-	sw $t2, 8($t0)
-	sw $t2, 12($t0)
-	sw $t2, 16($t0)
-	sw $t2, 20($t0)
-	sw $t2, 24($t0)
-	
-	
+	jal DrawP
 	
 LoseScreenLoop: # wait for user to press "P"
 	# check keypress
@@ -496,9 +629,19 @@ HandleKeyA:
 	mult $t1, $t3
 	mflo $t1
 	sw $t1, PlayerDx	# set PlayerDx to default Dx (leftwards)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)		# push old ra into stack
+	jal CheckWallJump	# check if able to wall jump
+	lw $ra, 0($sp)		# pop old ra back
+	addi $sp, $sp, 4
 HandleKeyD:
 	bne $t0, 0x64, HandleKeyP
 	sw $t1, PlayerDx	# set PlayerDy to default Dx (Rightwards)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)		# push old ra into stack
+	jal CheckWallJump	# check if able to wall jump
+	lw $ra, 0($sp)		# pop old ra back
+	addi $sp, $sp, 4
 HandleKeyP:
 	bne $t0, 0x70, HandleKeypressExit
 	addi $sp, $sp, -4
@@ -1369,6 +1512,10 @@ DrawLevel1:
 	li $a0, 12
 	li $a1, 5
 	jal DrawSidePlatS
+	
+	li $a0, 20
+	li $a1, 32
+	jal DrawSidePlatM
 	
 	
 	#draw hearts
