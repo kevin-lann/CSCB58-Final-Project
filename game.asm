@@ -6,31 +6,37 @@
 # Student: Kevin Lan, 1009407143, lankevin, k.lan@mail.utoronto.ca
 #
 # Bitmap Display Configuration:
-# - Unit width in pixels: 4 (update this as needed)
-# - Unit height in pixels: 4 (update this as needed)
-# - Display width in pixels: 256 (update this as needed)
+# - Unit width in pixels: 8 (update this as needed)
+# - Unit height in pixels: 8 (update this as needed)
+# - Display width in pixels: 512 (update this as needed)
 # - Display height in pixels: 512 (update this as needed)
 # - Base Address for Display: 0x10008000 ($gp)
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/3 (choose the one the applies)
+# - Milestone 3 
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
-# 1. (fill in the feature, if any)
-# 2. (fill in the feature, if any)
-# 3. (fill in the feature, if any)
-# ... (add more if necessary)
+# 1. Show health ( health will be 3 hearts ) [2]
+# 2. Fail condition (fall below screen or lose all 3 hearts) [1]
+# 3. Win condition (get to top of level) [1]
+# 4. Moving platforms [2]
+# 5. Wall Jump (double jump) [1]
+# 6. Different levels (at least 3) [2]
 #
 # Link to video demonstration for final submission:
 # - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
 #
+# Video link: 		https://play.library.utoronto.ca/watch/ff7af9ac0a99ab3fcdfc08660b2a9b86
+# Github Link: 		https://github.com/kevin-lann/CSCB58-Final-Project
+#
 # Are you OK with us sharing the video with people outside course staff?
-# - yes / no / yes, and please share this project github link as well!
+# - yes, and please share this project github link as well!
 #
 # Any additional information that the TA needs to know:
-# - (write here, if any)
+# - Reminder: I implemented Wall Jump for the Double Jump feature
+# - Have fun!
 #
 #####################################################################
 
@@ -106,6 +112,12 @@ Platform1Shifts: .word	0	# num of shifts right that moving platform 1 is current
 Platform1MaxShifts: .word 0	# max shifts for plat1
 Platform1Dx:	.word	4	# plat speed in x direc
 
+Platform2X: .word	0	# moving platform X coord on screen 
+Platform2Y: .word	0	# moving platform Y coord on screen 
+Platform2Shifts: .word	0	# num of shifts right that moving platform 2 is currently shifted
+Platform2MaxShifts: .word 0	# max shifts for plat2
+Platform2Dx:	.word	4	# plat speed in x direc
+
 LevelHasMovingPlats: .word 0	# stores whether or not the current level has moving plats or not
 CurrentLevel: .word	1	# current level (1,2, or 3)
 
@@ -120,12 +132,13 @@ main:
 	sw $zero, PlayerState
 	sw $zero, GravityTicks
 	sw $zero, Jumps
-	li $t0, 11
+	li $t0, 11	# set to high number for no gravity
 	sw $t0, PlayerJumpHeight
 	li $t0, PLAYER_DEFAULT_HP
 	sw $t0, PlayerHP
 	sw $t0, CurrentHearts
 	sw $zero, Platform1Shifts
+	sw $zero, Platform2Shifts
 	sw $zero, LevelHasMovingPlats
 	
 	li $t0, BASE_ADDR
@@ -140,6 +153,10 @@ main:
 	li $a0, 240
 	li $a1, 1
 	jal DrawHeartIcon
+	
+	# testing # # # # 
+	# li $t1, 3
+	# sw $t1, CurrentLevel
 	
 	# Draw the level
 	lw $t1, CurrentLevel
@@ -516,6 +533,82 @@ WinGameScreen:
 	# no need to store ra here
 	jal ClearScreen
 	# reset level to 1
+	li $t2, 1
+	lw $t2, CurrentLevel
+	# Draw
+	jal DrawP
+	li $t1, 0xFFFFFF
+	
+	li $t0, BASE_ADDR
+	# Draw "YOU WIN" text
+	addi $t0, $t0, 76
+	addi $t0, $t0, 2048
+	sw $t1, 0($t0)	# row 1
+	sw $t1, 8($t0)
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t1, 24($t0)
+	sw $t1, 32($t0)
+	sw $t1, 40($t0)
+	sw $t1, 52($t0)
+	sw $t1, 68($t0)
+	sw $t1, 76($t0)
+	sw $t1, 84($t0)
+	sw $t1, 88($t0)
+	sw $t1, 100($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)	# row 2
+	sw $t1, 8($t0)
+	sw $t1, 16($t0)
+	sw $t1, 24($t0)
+	sw $t1, 32($t0)
+	sw $t1, 40($t0)
+	sw $t1, 52($t0)
+	sw $t1, 68($t0)
+	sw $t1, 76($t0)
+	sw $t1, 84($t0)
+	sw $t1, 92($t0)
+	sw $t1, 100($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 4($t0)	# row 3
+	sw $t1, 16($t0)
+	sw $t1, 24($t0)
+	sw $t1, 32($t0)
+	sw $t1, 40($t0)
+	sw $t1, 52($t0)
+	sw $t1, 60($t0)
+	sw $t1, 68($t0)
+	sw $t1, 76($t0)
+	sw $t1, 84($t0)
+	sw $t1, 92($t0)
+	sw $t1, 100($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 4($t0)	# row 4
+	sw $t1, 16($t0)
+	sw $t1, 24($t0)
+	sw $t1, 32($t0)
+	sw $t1, 40($t0)
+	sw $t1, 52($t0)
+	sw $t1, 56($t0)
+	sw $t1, 64($t0)
+	sw $t1, 68($t0)
+	sw $t1, 76($t0)
+	sw $t1, 84($t0)
+	sw $t1, 96($t0)
+	sw $t1, 100($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 4($t0)	# row 5
+	sw $t1, 16($t0)
+	sw $t1, 20($t0)
+	sw $t1, 24($t0)
+	sw $t1, 32($t0)
+	sw $t1, 36($t0)
+	sw $t1, 40($t0)
+	sw $t1, 52($t0)
+	sw $t1, 68($t0)
+	sw $t1, 76($t0)
+	sw $t1, 84($t0)
+	sw $t1, 100($t0)
 
 WinGameScreenLoop: # wait for user to press "P"
 	# check keypress
@@ -829,6 +922,7 @@ MovePlat:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	beq $a0, 2, MovePlat2
+	
 MovePlat1:
 	# Clear Previous plat1
 	lw $t1, Platform1X
@@ -869,6 +963,43 @@ INCREMENT1:
 	j EndMovePlat
 	
 MovePlat2:
+	# Clear Previous plat2
+	lw $t1, Platform2X
+	lw $t2, Platform2Y
+	move $a0, $t1
+	move $a1, $t2
+	jal ClearSidePlatM
+	
+	lw $t3, Platform2Shifts
+	lw $t4, Platform2Dx
+	# check if hit movement bounds
+CHECKRIGHT2:
+	bne $t4, 4, CHECKLEFT2
+	lw $t9, Platform2MaxShifts
+	bne $t3, $t9, CHECKLEFT2
+	li $t5, -4
+	sw $t5, Platform2Dx
+	j INCREMENT2
+CHECKLEFT2:
+	bne $t3, 0, INCREMENT2
+	li $t5, 4
+	sw $t5, Platform2Dx
+	
+INCREMENT2:
+	# increment shift
+	add $t3, $t3, $t4
+	sw $t3, Platform2Shifts
+	
+	# update coords
+	add $t1, $t1, $t4
+	sw $t1, Platform2X
+	
+	# move
+	move $a0, $t1
+	move $a1, $t2
+	jal DrawSidePlatM
+	
+	
 EndMovePlat:
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
@@ -1023,6 +1154,64 @@ DrawSpikeDown:
 	jr $ra
 
 # Params: int x, int y
+DrawSpikeLeft:
+	li $t0, BASE_ADDR
+	
+	li $t1, SPIKE_BASE_COLOR
+	li $t2, SPIKE_DARK_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4 	#1st row
+	sw $t1, 0($t0)
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	
+	addi $t0, $t0, WIDTH	#2nd row	
+	sw $t1, 4($t0)
+	sw $t2, 8($t0)
+	
+	addi $t0, $t0, WIDTH	#3rd row
+	sw $t1, 8($t0)
+	
+	jr $ra
+	
+# Params: int x, int y
+DrawSpikeRight:
+	li $t0, BASE_ADDR
+	
+	li $t1, SPIKE_BASE_COLOR
+	li $t2, SPIKE_DARK_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4 	#1st row
+	sw $t1, 0($t0)
+	
+	addi $t0, $t0, WIDTH	#2nd row	
+	sw $t2, 0($t0)
+	sw $t1, 4($t0)
+	
+	addi $t0, $t0, WIDTH	#3rd row
+	sw $t2, 0($t0)
+	sw $t2, 4($t0)
+	sw $t1, 8($t0)
+	
+	jr $ra
+
+# Params: int x, int y
 DrawSidePlatM:
 	li $t0, BASE_ADDR
 	li $t2, PLAT_BASE_COLOR
@@ -1155,6 +1344,105 @@ DrawSidePlatS:
 	sw $t1, 4($t0)
 	
 	jr $ra
+
+# Params: int x, int y
+DrawVertPlatM:
+	li $t0, BASE_ADDR
+	li $t1, PLAT_BASE_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4	#1st row
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	
+	jr $ra
+
+# Params: int x, int y
+DrawVertPlatL:
+	li $t0, BASE_ADDR
+	li $t1, PLAT_BASE_COLOR
+	
+	# set up addr at the coords (x,y)
+	move $t4, $a0
+	move $t5, $a1
+	li $t6, WIDTH
+	mult $t5, $t6
+	mflo $t5
+	add $t4, $t5, $t4
+	
+	add $t0, $t0, $t4	#1st row
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	addi $t0, $t0, WIDTH
+	
+	jr $ra
 	
 # Params: int x, int y
 DrawHeart:
@@ -1189,7 +1477,7 @@ ClearHeart:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	
-	addi $a0, $a0, -264
+	addi $a0, $a0, -520
 	jal ClearHeartPixel
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
@@ -1204,7 +1492,7 @@ ClearHeart:
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
@@ -1219,7 +1507,7 @@ ClearHeart:
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
@@ -1234,7 +1522,7 @@ ClearHeart:
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
@@ -1249,7 +1537,7 @@ ClearHeart:
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
@@ -1264,7 +1552,7 @@ ClearHeart:
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
@@ -1279,7 +1567,7 @@ ClearHeart:
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
@@ -1294,7 +1582,7 @@ ClearHeart:
 	addi $a0, $a0, 4
 	jal ClearHeartPixel
 	
-	addi $a0, $a0, 128
+	addi $a0, $a0, 256
 	jal ClearHeartPixel
 	addi $a0, $a0, -4
 	jal ClearHeartPixel
@@ -1574,8 +1862,10 @@ DrawLevel1:
 	# Draw moving plats
 	li $a0, 180
 	li $a1, 27
+	li $a2, 4
 	sw $a0, Platform1X
 	sw $a1, Platform1Y
+	sw $a2, Platform1Dx
 	
 	jal DrawSidePlatM
 	li $a0, 40
@@ -1626,10 +1916,6 @@ DrawLevel1:
 	li $a1, 5
 	jal DrawSidePlatS
 	
-	li $a0, 20
-	li $a1, 32
-	jal DrawSidePlatM
-	
 	
 	#draw hearts
 	li $a0, 208
@@ -1670,6 +1956,390 @@ DrawLevel1:
 	jr $ra
 	
 DrawLevel2:
-
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	# init player's coord
+	li $t1, PLAYER_SPAWN_LOC
+	sw $t1, PlayerCoord
+	
+	# Draw player
+	jal DrawPlayer
+	
+	# Draw moving plats
+	li $a0, 96
+	li $a1, 41
+	li $a2, 4
+	sw $a0, Platform1X
+	sw $a1, Platform1Y
+	sw $a2, Platform1Dx
+	jal DrawSidePlatM
+	li $a0, 84
+	sw $a0, Platform1MaxShifts
+	
+	li $a0, 64
+	li $a1, 20
+	li $a2, -4
+	sw $a0, Platform2X
+	sw $a1, Platform2Y
+	sw $a2, Platform2Dx
+	jal DrawSidePlatM
+	li $a0, 40
+	sw $a0, Platform2MaxShifts
+	
+	# Draw plats
+	li $a0, 244
+	li $a1, 56
+	jal DrawSidePlatS
+	
+	li $a0, 120
+	li $a1, 60
+	jal DrawSidePlatM
+	li $a0, 64
+	li $a1, 56
+	jal DrawSidePlatM
+	li $a0, 8
+	li $a1, 37
+	jal DrawVertPlatL
+	li $a0, 64
+	li $a1, 41
+	jal DrawSidePlatM
+	li $a0, 100
+	li $a1, 45
+	jal DrawSidePlatL
+	li $a0, 156
+	li $a1, 45
+	jal DrawSidePlatL
+	li $a0, 212
+	li $a1, 45
+	jal DrawSidePlatM
+	
+	li $a0, 192
+	li $a1, 22
+	jal DrawVertPlatL
+	li $a0, 248
+	li $a1, 25
+	jal DrawVertPlatL
+	li $a0, 192
+	li $a1, 15
+	jal DrawVertPlatM
+	li $a0, 248
+	li $a1, 11
+	jal DrawVertPlatL
+	
+	# spike ball1
+	li $a0, 148
+	li $a1, 10
+	jal DrawSidePlatS
+	li $a0, 156
+	li $a1, 10
+	jal DrawSidePlatS
+	li $a0, 148
+	li $a1, 12
+	jal DrawSidePlatS
+	li $a0, 156
+	li $a1, 12
+	jal DrawSidePlatS
+	li $a0, 148
+	li $a1, 7
+	jal DrawSpikeUp
+	li $a0, 136
+	li $a1, 11
+	jal DrawSpikeLeft
+	li $a0, 164
+	li $a1, 10
+	jal DrawSpikeRight
+	li $a0, 152
+	li $a1, 14
+	jal DrawSpikeDown
+	
+	# spike ball2
+	li $a0, 40
+	li $a1, 25
+	jal DrawSidePlatS
+	li $a0, 40
+	li $a1, 27
+	jal DrawSidePlatS
+	li $a0, 48
+	li $a1, 25
+	jal DrawSidePlatS
+	li $a0, 48
+	li $a1, 27
+	jal DrawSidePlatS
+	li $a0, 40
+	li $a1, 22
+	jal DrawSpikeUp
+	li $a0, 28
+	li $a1, 26
+	jal DrawSpikeLeft
+	li $a0, 56
+	li $a1, 25
+	jal DrawSpikeRight
+	li $a0, 44
+	li $a1, 29
+	jal DrawSpikeDown
+	
+	# spike ball3
+	li $a0, 72
+	li $a1, 3
+	jal DrawSidePlatS
+	li $a0, 72
+	li $a1, 5
+	jal DrawSidePlatS
+	li $a0, 80
+	li $a1, 3
+	jal DrawSidePlatS
+	li $a0, 80
+	li $a1, 5
+	jal DrawSidePlatS
+	li $a0, 72
+	li $a1, 0
+	jal DrawSpikeUp
+	li $a0, 60
+	li $a1, 4
+	jal DrawSpikeLeft
+	li $a0, 88
+	li $a1, 3
+	jal DrawSpikeRight
+	li $a0, 76
+	li $a1, 7
+	jal DrawSpikeDown
+	
+	# Draw rest of level
+	li $a0, 188
+	li $a1, 13
+	jal DrawSidePlatM
+	li $a0, 0
+	li $a1, 10
+	jal DrawVertPlatL
+	li $a0, 100
+	li $a1, 0
+	jal DrawSidePlatL
+	li $a0, 156
+	li $a1, 0
+	jal DrawSidePlatL
+	li $a0, 212
+	li $a1, 0
+	jal DrawSidePlatM
+	li $a0, 132
+	li $a1, 7
+	jal DrawSidePlatS
+	
+	# Draw Hearts
+	li $a0, 240
+	li $a1, 42
+	jal DrawHeart
+	
+	# Draw Spikes
+	li $a0, 80
+	li $a1, 53
+	jal DrawSpikeUp
+	li $a0, 12
+	li $a1, 37
+	jal DrawSpikeRight
+	li $a0, 100
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 112
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 124
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 136
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 148
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 160
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 172
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 184
+	li $a1, 43
+	jal DrawSpikeUp
+	li $a0, 196
+	li $a1, 43
+	jal DrawSpikeUp
+	
+	
+	li $a0, 180
+	li $a1, 25
+	jal DrawSpikeLeft
+	li $a0, 180
+	li $a1, 22
+	jal DrawSpikeLeft
+	
+	li $a0, 196
+	li $a1, 30
+	jal DrawSpikeRight
+	li $a0, 196
+	li $a1, 27
+	jal DrawSpikeRight
+	li $a0, 240
+	li $a1, 22
+	jal DrawSpikeLeft
+	li $a0, 240
+	li $a1, 19
+	jal DrawSpikeLeft
+	li $a0, 196
+	li $a1, 15
+	jal DrawSpikeRight
+	
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+	
 DrawLevel3:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
 
+	# init player's coord
+	li $t1, PLAYER_SPAWN_LOC
+	sw $t1, PlayerCoord
+	
+	# Draw player
+	jal DrawPlayer
+	
+	# Draw moving plats
+	li $a0, 4
+	li $a1, 36
+	li $a2, 4
+	sw $a0, Platform1X
+	sw $a1, Platform1Y
+	sw $a2, Platform1Dx
+	jal DrawSidePlatM
+	li $a0, 4
+	sw $a0, Platform1MaxShifts
+	
+	li $a0, 80
+	li $a1, 24
+	li $a2, 4
+	sw $a0, Platform2X
+	sw $a1, Platform2Y
+	sw $a2, Platform2Dx
+	jal DrawSidePlatM
+	li $a0, 40
+	sw $a0, Platform2MaxShifts
+	
+	# Draw level
+	li $a0, 120
+	li $a1, 60
+	jal DrawSidePlatM
+	
+	li $a0, 120
+	li $a1, 54
+	jal DrawSidePlatL
+	li $a0, 176
+	li $a1, 54
+	jal DrawSidePlatL
+	li $a0, 204
+	li $a1, 60
+	jal DrawSidePlatM
+	
+	li $a0, 240
+	li $a1, 57
+	jal DrawHeart
+	
+	li $a0, 120
+	li $a1, 40
+	jal DrawSidePlatL
+	li $a0, 176
+	li $a1, 40
+	jal DrawSidePlatL
+	li $a0, 228
+	li $a1, 40
+	jal DrawSidePlatM
+	li $a0, 172
+	li $a1, 42
+	jal DrawSpikeDown
+	li $a0, 208
+	li $a1, 42
+	jal DrawSpikeDown
+	li $a0, 132
+	li $a1, 42
+	jal DrawSpikeDown
+	li $a0, 164
+	li $a1, 51
+	jal DrawSpikeUp
+	li $a0, 200
+	li $a1, 51
+	jal DrawSpikeUp
+	li $a0, 116
+	li $a1, 50
+	jal DrawSidePlatS
+	li $a0, 116
+	li $a1, 52
+	jal DrawSidePlatS
+	li $a0, 116
+	li $a1, 54
+	jal DrawSidePlatS
+	
+	li $a0, 120
+	li $a1, 26
+	jal DrawVertPlatL
+	li $a0, 108
+	li $a1, 30
+	jal DrawSpikeLeft
+	li $a0, 108
+	li $a1, 33
+	jal DrawSpikeLeft
+	
+	li $a0, 20
+	li $a1, 60
+	jal DrawSidePlatS
+	li $a0, 12
+	li $a1, 52
+	jal DrawSidePlatS
+	li $a0, 0
+	li $a1, 44
+	jal DrawSidePlatM
+	li $a0, 0
+	li $a1, 36
+	jal DrawSidePlatM
+	li $a0, 0
+	li $a1, 30
+	jal DrawSidePlatM
+	li $a0, 16
+	li $a1, 28
+	jal DrawSpikeUp
+	
+	li $a0, 160
+	li $a1, 7
+	jal DrawVertPlatL
+	li $a0, 160
+	li $a1, 21
+	jal DrawVertPlatL
+	li $a0, 160
+	li $a1, 0
+	jal DrawVertPlatL
+	li $a0, 148
+	li $a1, 10
+	jal DrawSpikeLeft
+	li $a0, 148
+	li $a1, 13
+	jal DrawSpikeLeft
+
+	li $a0, 168
+	li $a1, 22
+	jal DrawSpikeRight
+	li $a0, 196
+	li $a1, 19
+	jal DrawSidePlatS
+	li $a0, 168
+	li $a1, 1
+	jal DrawSpikeRight
+	
+	li $a0, 56
+	li $a1, 14
+	jal DrawHeart
+	li $a0, 240
+	li $a1, 30
+	jal DrawHeart
+	
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
